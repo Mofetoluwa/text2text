@@ -1,14 +1,14 @@
 import numpy as np
-from text2text import Tfidfer
+from text2text import Tfidfer, Transformer, Vectorizer
 
-class Searcher(Tfidfer):
+class Searcher(Transformer):
 
   def transform(self, input_lines, queries, src_lang='en', search_index=None, **kwargs):
     if search_index is None:
-      search_index = Tfidfer.transform(self, input_lines)
+      search_index = Tfidfer().transform(input_lines)
     if type(queries) != list:
       queries = [queries]
-    queries = Tfidfer.transform(self, queries, use_idf=False)
+    queries = Tfidfer().transform(queries, use_idf=False)
     scores = np.zeros((len(queries), len(search_index)))
     for i, q in enumerate(queries):
       for j, d in enumerate(search_index):

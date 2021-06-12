@@ -50,12 +50,12 @@ class Abstractor(Transformer):
           w_list.append(w.upper())
         else:
           w_list.append(w)
-      r = set(self.__class__.tokenizer.convert_tokens_to_ids(w_list))
+      r = set(self.tokenizer.convert_tokens_to_ids(w_list))
     return r
 
-  def __init__(self, **kwargs):
-    self.__class__.pretrained_translator = kwargs.get('pretrained_translator')
-    pretrained_parameters = self.__class__.pretrained_parameters
+  def __init__(self, input_lines, pretrained_translator, src_lang='en', **kwargs):
+    Transformer.__init__(self, input_lines, pretrained_translator, src_lang=src_lang, **kwargs)
+    pretrained_parameters = self.pretrained_parameters
     if pretrained_parameters["max_tgt_length"] >= pretrained_parameters["max_seq_length"] - 2:
       raise ValueError("Maximum tgt length exceeds max seq length - 2.")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -80,7 +80,7 @@ class Abstractor(Transformer):
       (1 if pretrained_parameters["s2s_add_segment"] else 0) if pretrained_parameters["new_segment_ids"] else 2
     mask_word_id, eos_word_ids, sos_word_id = tokenizer.convert_tokens_to_ids(["[MASK]", "[SEP]", "[S2S_SOS]"])
 
-    self.__class__.tokenizer = tokenizer
+    self.tokenizer = tokenizer
 
     forbid_ignore_set = self._get_token_id_set(pretrained_parameters["forbid_ignore_word"])
     not_predict_set = self._get_token_id_set(pretrained_parameters["not_predict_token"])
@@ -107,25 +107,26 @@ class Abstractor(Transformer):
     torch.cuda.empty_cache()
     model.eval()
 
-    self.__class__.device = device
-    self.__class__.model = model
-    self.__class__.bi_uni_pipeline = bi_uni_pipeline
+    self.device = device
+    self.model = model
+    self.bi_uni_pipeline = bi_uni_pipeline
 
   def _translate_lines(self, input_lines, src_lang, tgt_lang):
-    translator = getattr(self.__class__, "translator", Translator(pretrained_translator=self.__class__.pretrained_translator))
-    self.__class__.translator = translator
-    return translator.transform(input_lines, src_lang=src_lang, tgt_lang=tgt_lang)
+    translator = getattr(self, "translator", Translator(input_lines, self.pretrained_translator, src_lang=src_lang))
+    self.translator = translator
+    return translator.transform(tgt_lang=tgt_lang)
 
-  def transform(self, input_lines, src_lang='en', **kwargs):
-    Transformer.transform(self, input_lines, src_lang, **kwargs)
+  def transform(self, **kwargs):
+    input_lines = self.input_lines
+    src_lang = self.src_lang
+    pretrained_parameters = self.__class__.pretrained_parameters
+    tokenizer = self.tokenizer
+    model = self.model
+    bi_uni_pipeline = self.bi_uni_pipeline
+    device = self.device
+
     if src_lang != 'en':
       input_lines = self._translate_lines(input_lines, src_lang, 'en')
-
-    pretrained_parameters = self.__class__.pretrained_parameters
-    tokenizer = self.__class__.tokenizer
-    model = self.__class__.model
-    bi_uni_pipeline = self.__class__.bi_uni_pipeline
-    device = self.__class__.device
 
     max_src_length = pretrained_parameters["max_seq_length"] - 2 - pretrained_parameters["max_tgt_length"]
     input_lines = [tokenizer.tokenize(x)[:max_src_length] for x in input_lines]
@@ -169,5 +170,5 @@ class Abstractor(Transformer):
 
     if src_lang != 'en':
       output_lines = self._translate_lines(output_lines, src_lang='en', tgt_lang=src_lang)
-          
+
     return output_lines

@@ -8,22 +8,20 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer
 class Answerer(Transformer):
   pretrained_answerer = "valhalla/longformer-base-4096-finetuned-squadv1"
 
-  def __init__(self, **kwargs):
-    self.__class__.pretrained_translator = kwargs.get('pretrained_translator')
-    pretrained_answerer = kwargs.get('pretrained_answerer')
-    if not pretrained_answerer:
-      pretrained_answerer = self.__class__.pretrained_answerer
-    self.__class__.tokenizer = AutoTokenizer.from_pretrained(pretrained_answerer)
-    self.__class__.model = AutoModelForQuestionAnswering.from_pretrained(pretrained_answerer)
+  def __init__(self, input_lines, pretrained_translator, src_lang='en', **kwargs):
+    Transformer.__init__(self, input_lines, pretrained_translator, src_lang=src_lang, **kwargs)
+    pretrained_answerer = kwargs.get('pretrained_answerer', self.__class__.pretrained_answerer)
+    self.tokenizer = AutoTokenizer.from_pretrained(pretrained_answerer)
+    self.model = AutoModelForQuestionAnswering.from_pretrained(pretrained_answerer)
 
   def _translate_lines(self, input_lines, src_lang, tgt_lang):
-    translator = getattr(self.__class__, "translator", Translator(pretrained_translator=self.__class__.pretrained_translator))
-    self.__class__.translator = translator
-    return translator.transform(input_lines, src_lang=src_lang, tgt_lang=tgt_lang)
+    translator = getattr(self, "translator", Translator(input_lines, self.pretrained_translator, src_lang=src_lang))
+    self.translator = translator
+    return translator.transform(tgt_lang=tgt_lang)
 
   def _get_answers(self, input_lines):
-    tokenizer = self.__class__.tokenizer
-    model = self.__class__.model
+    tokenizer = self.tokenizer
+    model = self.model
     num_examples = len(input_lines)
     encoded_inputs = tokenizer.batch_encode_plus(input_lines, padding=True, return_tensors="pt")
     input_ids = encoded_inputs["input_ids"]
@@ -38,8 +36,10 @@ class Answerer(Transformer):
     answers = [a.strip() for a in answers]
     return answers
 
-  def transform(self, input_lines, src_lang='en', **kwargs):
-    Transformer.transform(self, input_lines, src_lang, **kwargs)
+  def transform(self, **kwargs):
+    src_lang = self.src_lang
+    input_lines = self.input_lines
+
     if src_lang != 'en':
       input_lines = self._translate_lines(input_lines, src_lang, 'en')
 

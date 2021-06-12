@@ -32,16 +32,16 @@ class Handler(object):
   }
 
   def _transformer_handler(self, transformation, **kwargs):
-    transformer = self.__class__.transformer_instances.get(transformation, self.__class__.EXPOSED_TRANSFORMERS[transformation](pretrained_translator=self.__class__.pretrained_translator))
-    self.__class__.transformer_instances[transformation] = transformer
-    return transformer.transform(input_lines=self.input_lines, src_lang=self.src_lang, **kwargs)
+    transformer = self.transformer_instances.get(transformation, self.__class__.EXPOSED_TRANSFORMERS[transformation](input_lines=self.input_lines, pretrained_translator=self.pretrained_translator, src_lang=self.src_lang))
+    self.transformer_instances[transformation] = transformer
+    return transformer.transform(**kwargs)
     
-  def __init__(self, input_lines=[], src_lang='en', **kwargs):
+  def __init__(self, input_lines, src_lang='en', **kwargs):
     self.input_lines = input_lines
     self.src_lang = src_lang
-    self.__class__.pretrained_translator = kwargs.get("pretrained_translator")
+    self.pretrained_translator = kwargs.get("pretrained_translator", None)
     for k in self.__class__.EXPOSED_TRANSFORMERS:
       handler = lambda x: lambda **kwargs: self._transformer_handler(transformation=x, **kwargs)
       handler = handler(k)
       setattr(self, k, handler)
-    self.__class__.transformer_instances = {}
+    self.transformer_instances = {}
